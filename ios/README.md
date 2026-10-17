@@ -23,3 +23,12 @@ If the iPhone says it cannot connect, first open `http://172.20.10.13:3000/healt
 All balances, market values, rewards, commodities, vouchers, and transfers are simulated. In offline mode, changes are saved only on the device and are not synchronized with the API or other devices. The app does not create blockchain keys, use a blockchain, or transfer real funds.
 
 Run the web/API regression suite from the repository root with `npm run check`.
+
+## Funzioni "ecosistema" (demo offline)
+
+Tutte simulate, salvate solo sul dispositivo, nessun fondo reale:
+- **Pagamento QR**: ricevi/paga con `bitzza://pay` (legge anche `ethereum:`, `bitcoin:`, `solana:`).
+- **Pizza-to-earn**: QR `bitzza://earn` della pizzeria, 1 BITZ demo, 1/giorno per pizzeria, max 3/giorno.
+- **Consegne SpesaGo**: da corriere guadagni tariffa del mezzo (€/km + €/kg del prototipo SpesaGo) + bonus, max 5/giorno.
+- **Spesa a casa**: ordini e paghi in BITZ con preventivo (spesa + corriere + commissione 0,17%), cashback 2% (max 5) alla consegna.
+- **Livelli e badge**: XP, serie giornaliera e traguardi calcolati dalle attività.

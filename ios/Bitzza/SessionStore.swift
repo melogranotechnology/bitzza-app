@@ -21,6 +21,13 @@ final class SessionStore: ObservableObject {
     @Published private(set) var isOfflineDemo = false
     @Published private(set) var isMetaMaskDemoConnected = false
     @Published private(set) var demoSwaps: [DemoSwap] = []
+    @Published private(set) var pizzaVisits: [PizzaVisit] = []
+    @Published private(set) var deliveries: [DeliveryRecord] = []
+    @Published private(set) var spesaOrders: [SpesaOrder] = []
+
+    var progress: ProgressSummary {
+        ProgressSummary.compute(pizza: pizzaVisits, deliveries: deliveries, orders: spesaOrders)
+    }
     @Published var isLoading = false
     @Published var isFeatureLoading = false
     @Published var errorMessage: String?
@@ -36,6 +43,9 @@ final class SessionStore: ObservableObject {
     private static let offlineSessionKey = "bitzza.offline-demo.active"
     private static let metaMaskDemoKey = "bitzza.metamask-demo.connected"
     private static let demoSwapsKey = "bitzza.metamask-demo.swaps"
+    private static let pizzaVisitsKey = "bitzza.pizza-rewards.visits"
+    private static let deliveriesKey = "bitzza.delivery-rewards.records"
+    private static let spesaOrdersKey = "bitzza.spesa-orders"
 
     init() {
         do {
@@ -56,6 +66,18 @@ final class SessionStore: ObservableObject {
             offlineState = .sample()
         }
         isMetaMaskDemoConnected = defaults.bool(forKey: Self.metaMaskDemoKey)
+        if let data = defaults.data(forKey: Self.pizzaVisitsKey),
+           let visits = try? JSONDecoder().decode([PizzaVisit].self, from: data) {
+            pizzaVisits = visits
+        }
+        if let data = defaults.data(forKey: Self.deliveriesKey),
+           let records = try? JSONDecoder().decode([DeliveryRecord].self, from: data) {
+            deliveries = records
+        }
+        if let data = defaults.data(forKey: Self.spesaOrdersKey),
+           let orders = try? JSONDecoder().decode([SpesaOrder].self, from: data) {
+            spesaOrders = orders
+        }
         if let data = defaults.data(forKey: Self.demoSwapsKey) {
             do {
                 demoSwaps = try JSONDecoder().decode([DemoSwap].self, from: data)
@@ -90,6 +112,120 @@ final class SessionStore: ObservableObject {
         applyOfflineState()
         persistOfflineState()
         notice = "Demo offline attiva: le modifiche restano su questo iPhone."
+    }
+
+    func claimPizzaReward(_ code: MerchantEarnCode) {
+        guard isOfflineDemo else {
+            errorMessage = "Le ricompense QR sono disponibili nella demo offline."
+            return
+        }
+        let calendar = Calendar.current
+        let today = pizzaVisits.filter { calendar.isDateInToday($0.date) }
+        guard !today.contains(where: { $0.merchantId == code.merchantId }) else {
+            errorMessage = "Hai già ricevuto la ricompensa da \(code.name) oggi. Torna domani."
+            return
+        }
+        guard today.count < PizzaRewardRules.maxVisitsPerDay else {
+            errorMessage = "Limite giornaliero raggiunto (\(PizzaRewardRules.maxVisitsPerDay) pizzerie al giorno)."
+            return
+        }
+        let reward = PizzaRewardRules.rewardPerVisit
+        offlineState.balance = WalletBalance(balance: offlineState.balance.balance + reward, currency: offlineState.balance.currency)
+        recordOfflineTransaction(type: "received", amount: reward, otherParty: code.name, description: "Ricompensa pizza-to-earn demo")
+        pizzaVisits.insert(PizzaVisit(merchantId: code.merchantId, merchantName: code.name, reward: reward, date: Date()), at: 0)
+        pizzaVisits = Array(pizzaVisits.prefix(200))
+        if let data = try? JSONEncoder().encode(pizzaVisits) { defaults.set(data, forKey: Self.pizzaVisitsKey) }
+        applyOfflineState()
+        persistOfflineState()
+        notice = "+\(String(format: "%.2f", reward)) BITZ demo da \(code.name)."
+    }
+
+    func completeDelivery(_ job: DeliveryJob, vehicle: DeliveryVehicle) {
+        guard isOfflineDemo else {
+            errorMessage = "Le consegne demo sono disponibili nella demo offline."
+            return
+        }
+        guard DeliveryPricing.isSuitable(vehicle, distanceKm: job.distanceKm) else {
+            errorMessage = "Il mezzo scelto non è adatto a \(job.distanceKm) km."
+            return
+        }
+        let today = deliveries.filter { Calendar.current.isDateInToday($0.date) }
+        guard today.count < DeliveryDemoFixtures.maxPerDay else {
+            errorMessage = "Limite giornaliero di \(DeliveryDemoFixtures.maxPerDay) consegne demo raggiunto."
+            return
+        }
+        guard !today.contains(where: { $0.jobId == job.id }) else {
+            errorMessage = "Hai già completato questa consegna oggi."
+            return
+        }
+        let earnings = DeliveryPricing.earnings(vehicle: vehicle, distanceKm: job.distanceKm, weightKg: job.weightKg)
+        let bonus = DeliveryPricing.completionBonus
+        let total = earnings + bonus
+        offlineState.balance = WalletBalance(balance: offlineState.balance.balance + total, currency: offlineState.balance.currency)
+        recordOfflineTransaction(type: "received", amount: total, otherParty: job.store, description: "Consegna SpesaGo demo (\(vehicle.title))")
+        deliveries.insert(DeliveryRecord(jobId: job.id, store: job.store, vehicle: vehicle, earnings: earnings, bonus: bonus, date: Date()), at: 0)
+        deliveries = Array(deliveries.prefix(200))
+        if let data = try? JSONEncoder().encode(deliveries) { defaults.set(data, forKey: Self.deliveriesKey) }
+        applyOfflineState()
+        persistOfflineState()
+        notice = "Consegna completata: +\(String(format: "%.2f", total)) BITZ demo."
+    }
+
+    func placeSpesaOrder(job: DeliveryJob, itemsTotal: Double, weightKg: Double, vehicle: DeliveryVehicle) -> Bool {
+        guard isOfflineDemo else {
+            errorMessage = "Gli ordini spesa demo sono disponibili nella demo offline."
+            return false
+        }
+        guard itemsTotal > 0, itemsTotal <= 500, weightKg > 0, weightKg <= 50 else {
+            errorMessage = "Inserisci una spesa tra 0,01 e 500 BITZ e un peso tra 1 e 50 kg."
+            return false
+        }
+        guard DeliveryPricing.isSuitable(vehicle, distanceKm: job.distanceKm) else {
+            errorMessage = "Il mezzo scelto non è adatto a \(job.distanceKm) km."
+            return false
+        }
+        guard !spesaOrders.contains(where: { !$0.isDelivered }) else {
+            errorMessage = "Hai già un ordine in corso. Completalo prima di farne un altro."
+            return false
+        }
+        let earnings = DeliveryPricing.earnings(vehicle: vehicle, distanceKm: job.distanceKm, weightKg: weightKg)
+        let commission = SpesaPricing.commission(base: itemsTotal + earnings)
+        let total = ((itemsTotal + earnings + commission) * 100).rounded() / 100
+        guard total <= offlineState.balance.balance else {
+            errorMessage = "Saldo demo insufficiente: servono \(String(format: "%.2f", total)) BITZ."
+            return false
+        }
+        offlineState.balance = WalletBalance(balance: offlineState.balance.balance - total, currency: offlineState.balance.currency)
+        recordOfflineTransaction(type: "sent", amount: total, otherParty: job.store, description: "Spesa SpesaGo demo")
+        let order = SpesaOrder(
+            store: job.store, area: job.area, itemsTotal: itemsTotal, weightKg: weightKg, distanceKm: job.distanceKm,
+            vehicle: vehicle, courierEarnings: earnings, commission: commission, total: total,
+            step: 0, date: Date(), cashback: SpesaPricing.cashback(itemsTotal: itemsTotal)
+        )
+        spesaOrders.insert(order, at: 0)
+        persistSpesaOrders()
+        applyOfflineState()
+        persistOfflineState()
+        notice = "Ordine inviato: \(String(format: "%.2f", total)) BITZ demo."
+        return true
+    }
+
+    func advanceSpesaOrder(_ id: UUID) {
+        guard let index = spesaOrders.firstIndex(where: { $0.id == id }), !spesaOrders[index].isDelivered else { return }
+        spesaOrders[index].step += 1
+        if spesaOrders[index].isDelivered {
+            let order = spesaOrders[index]
+            offlineState.balance = WalletBalance(balance: offlineState.balance.balance + order.cashback, currency: offlineState.balance.currency)
+            recordOfflineTransaction(type: "received", amount: order.cashback, otherParty: order.store, description: "Cashback spesa demo \(Int(SpesaPricing.cashbackPercent))%")
+            applyOfflineState()
+            persistOfflineState()
+            notice = "Ordine consegnato! Cashback +\(String(format: "%.2f", order.cashback)) BITZ demo."
+        }
+        persistSpesaOrders()
+    }
+
+    private func persistSpesaOrders() {
+        if let data = try? JSONEncoder().encode(spesaOrders) { defaults.set(data, forKey: Self.spesaOrdersKey) }
     }
 
     func connectMetaMaskDemo() {
@@ -731,6 +867,12 @@ final class SessionStore: ObservableObject {
     func resetOfflineDemo() {
         guard isOfflineDemo else { return }
         offlineState = .sample()
+        pizzaVisits = []
+        deliveries = []
+        spesaOrders = []
+        defaults.removeObject(forKey: Self.pizzaVisitsKey)
+        defaults.removeObject(forKey: Self.spesaOrdersKey)
+        defaults.removeObject(forKey: Self.deliveriesKey)
         applyOfflineState()
         persistOfflineState()
         resetMetaMaskDemo()

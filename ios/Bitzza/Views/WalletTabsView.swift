@@ -86,6 +86,46 @@ private struct ToolsView: View {
             List {
                 Section {
                     NavigationLink {
+                        SpesaOrderView()
+                    } label: {
+                        ToolRow(
+                            title: "Spesa a casa",
+                            subtitle: "Ordina e paga con BITZ, cashback alla consegna",
+                            symbol: "cart.fill",
+                            tint: BitzzaTheme.tomato
+                        )
+                    }
+                    NavigationLink {
+                        LevelsView()
+                    } label: {
+                        ToolRow(
+                            title: "Livelli e badge",
+                            subtitle: "XP, serie giornaliera e traguardi",
+                            symbol: "trophy.fill",
+                            tint: BitzzaTheme.gold
+                        )
+                    }
+                    NavigationLink {
+                        DeliveryEarnView()
+                    } label: {
+                        ToolRow(
+                            title: "Consegne SpesaGo",
+                            subtitle: "Fai il corriere e guadagna BITZ demo",
+                            symbol: "bicycle",
+                            tint: BitzzaTheme.forest
+                        )
+                    }
+                    NavigationLink {
+                        PizzaRewardsView()
+                    } label: {
+                        ToolRow(
+                            title: "Pizza-to-earn",
+                            subtitle: "Scansiona il QR della pizzeria e guadagna BITZ demo",
+                            symbol: "fork.knife",
+                            tint: BitzzaTheme.gold
+                        )
+                    }
+                    NavigationLink {
                         QRPaymentView()
                     } label: {
                         ToolRow(

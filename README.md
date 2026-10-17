@@ -1,32 +1,62 @@
-# BITZZA Wallet
+# BITZZA
 
-## Run locally
+> Wallet demo full-stack: app iOS nativa (SwiftUI), web (React), API (Node/Express) e prototipo di smart contract (Solidity, Sepolia testnet).
 
-1. Install backend dependencies with `npm install`.
-2. Copy `.env.example` to `.env` and set `JWT_SECRET` to a unique random value of at least 32 characters.
-3. Start the API with `npm start` (health endpoint: `http://localhost:3000/health`).
-4. In another terminal, run `cd frontend/web && npm install && npm run dev`.
+**Solo a scopo dimostrativo.** Nessun fondo reale, nessuna blockchain di produzione, nessuna custodia. Il BITZ è un saldo simulato.
 
-The frontend uses `http://localhost:3000/api` by default. Set `VITE_API_URL` in the frontend environment if the API is hosted elsewhere; it should include the `/api` path.
+<p align="center"><img src="docs/img/wallet.png" width="260" alt="Wallet BITZZA su iPhone"></p>
 
-The dashboard supports registration and login, account balance with address-copy and quick-send actions, transfers, transaction search/filter and export, contacts, commodity buying/selling, mining rewards/cooldowns, simulated token/market data, saved user preferences, simulated pizzeria onboarding and POS settlement, and fixed-price demo pizza vouchers. Transfer and voucher purchase requests support safe idempotent retries. The responsive wallet navigation, first-use activity state, and privacy-aware greeting help users find their way around.
+## Cosa dimostra
 
-The installed app shell is cached for navigation while offline. Outgoing payments made offline are stored in browser local storage per account and remain visibly pending until the API validates them; they do not reserve balance or count as transactions. They synchronize when the connection returns and can be retried if rejected. API responses and wallet balances are never cached by the service worker.
+| Area | Tecnologie | Contenuto |
+|---|---|---|
+| iOS | SwiftUI, AVFoundation, Keychain, UserDefaults | Wallet, mercato, contatti, onboarding, modalità demo offline |
+| Ecosistema | SwiftUI | Pagamento QR, Pizza-to-earn, Consegne, Spesa a casa, Livelli e badge |
+| Web | React, Vite, Reown AppKit, wagmi/viem | Wallet, pagina `/swap` con connessione wallet su Sepolia |
+| API | Node, Express, SQLite, JWT, Jest | Auth, trasferimenti idempotenti, rate limit, CORS con allowlist |
+| Contratti | Solidity, Hardhat | `BitzzaTestToken`, `MockUSDC`, `BitzzaSwap` con 5 test |
 
-Run the full validation set with `npm run check`. To run individual frontend commands from the repository root, use `npm run lint:web` and `npm run build:web`.
+## Funzioni dell'app iOS
 
-This is a functional demo ledger, not a production cryptocurrency wallet. Initial balances, mining rewards, commodity prices, token metadata, and market prices are simulated; there is no blockchain connection, custody, fiat payment, or real asset trading. Do not use it to hold or transfer real funds. For production use, a separate security, financial, legal, deployment, and recovery design is required.
+- **Pagamento QR**: genera e legge `bitzza://pay` e riconosce anche URI `ethereum:`, `bitcoin:`, `solana:`.
+- **Pizza-to-earn**: la pizzeria mostra un QR, il cliente guadagna 1 BITZ (una volta al giorno per locale, max 3 al giorno).
+- **Consegne**: accetti un lavoro, lo porti a termine in 4 fasi e guadagni in base al mezzo e alla distanza.
+- **Spesa a casa**: preventivo con corriere e commissione, pagamento in BITZ, cashback del 2% (max 5 BITZ).
+- **Livelli e badge**: XP, serie giornaliera e sei traguardi derivati dalle attività.
+- **Swap simulato BITZ/USDC** in stile MetaMask.
 
-See [docs/PRODUCT-ROADMAP.md](./docs/PRODUCT-ROADMAP.md) for the product-document alignment, demo boundaries, and production prerequisites.
+Tutto lo stato offline resta sul dispositivo.
 
-## Native iOS app (SwiftUI)
+## Architettura
 
-Open [the native iOS project](./ios/Bitzza.xcodeproj) in Xcode and run the **Bitzza** scheme on an iOS 17+ simulator or a physical iPhone. Use **Entra nella demo offline** to explore the SwiftUI wallet without an account, API server, or internet connection; local demo changes persist on that device and can be reset in Settings. API-backed login and registration are still available when the server is running. For setup and behavior details, see the [iOS README](./ios/README.md).
+```
+ios/            App SwiftUI (SessionStore = stato e regole; viste in Views/)
+frontend/web/   React + Vite (+ Reown AppKit per /swap)
+server.js       API Express + SQLite
+contracts/      Hardhat: token di test, MockUSDC, swap (Sepolia)
+docs/           Deploy, roadmap, requisiti legali, testi App Store
+```
 
-The iOS app, like the web app, is a demo ledger. Its offline activity is stored only on the device and is not synchronized; no mode creates or manages blockchain keys or transfers real funds.
+## Avvio rapido
 
-The native MetaMask-style connection and BITZ/USDC swap screen is also a UI simulation. It does not connect to MetaMask, use a real BITZ token, sign transactions, or access a decentralized exchange.
+```bash
+npm install
+cp .env.example .env        # imposta JWT_SECRET (>= 32 caratteri)
+npm start                   # API su http://localhost:3000
+cd frontend/web && npm install && npm run dev
+npm run check               # test API + lint + build web
+```
 
-For the vision in the supplied business plan and an assessment of its assumptions, see [docs/BUSINESS-PLAN-REVIEW.md](./docs/BUSINESS-PLAN-REVIEW.md). The original BITZZA artwork is used in the app shell, sign-in screens, and wallet opening screen.
+iOS: apri `ios/Bitzza.xcodeproj` in Xcode 15+ ed esegui lo schema **Bitzza** (iOS 17+). Usa "Entra nella demo offline", senza server.
 
-The proposed real-token direction is still at requirements and legal-review stage. See [docs/LEGAL-PRODUCT-BRIEF.md](./docs/LEGAL-PRODUCT-BRIEF.md) and [docs/PRODUCTION-REQUIREMENTS.md](./docs/PRODUCTION-REQUIREMENTS.md) for unresolved decisions and release gates. Do not use the demo for real funds.
+Contratti: `cd contracts && npm install && npx hardhat test`.
+
+## Limiti dichiarati
+
+- I QR sono statici e le ricompense sono simulate: un sistema reale richiederebbe codici firmati dal server e controlli anti-frode.
+- Le consegne e i negozi sono dati di esempio.
+- Un token reale richiede audit, consulenza legale e conformità (vedi `docs/LEGAL-PRODUCT-BRIEF.md` e `docs/PRODUCTION-REQUIREMENTS.md`).
+
+## Altri documenti
+
+[Deploy](docs/DEPLOY.md) · [Roadmap](docs/PRODUCT-ROADMAP.md) · [Contratti](contracts/README.md) · [iOS](ios/README.md) · [Privacy](docs/privacy.html)
