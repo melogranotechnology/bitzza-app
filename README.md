@@ -4,7 +4,7 @@
 
 **Solo a scopo dimostrativo.** Nessun fondo reale, nessuna blockchain di produzione, nessuna custodia. Il BITZ è un saldo simulato.
 
-<p align="center"><img src="docs/img/wallet.png" width="260" alt="Wallet BITZZA su iPhone"></p>
+<p align="center"><img src="docs/img/onboarding.png" width="240" alt="Onboarding"> <img src="docs/img/wallet.png" width="240" alt="Wallet BITZZA su iPhone"></p>
 
 ## Cosa dimostra
 

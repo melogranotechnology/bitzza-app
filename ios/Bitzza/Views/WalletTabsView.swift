@@ -8,50 +8,51 @@ struct WalletTabsView: View {
     @State private var selectedTab = 0
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            WalletHomeView()
-                .tabItem { Label("Wallet", systemImage: "wallet.bifold") }
-                .tag(0)
-
-            MarketView()
-                .tabItem { Label("Mercato", systemImage: "chart.xyaxis.line") }
-                .tag(1)
-
-            ToolsView()
-                .tabItem { Label("Strumenti", systemImage: "square.grid.2x2") }
-                .tag(2)
-
-            ContactsView { email in
-                session.paymentRecipient = email
-                selectedTab = 0
-            }
-                .tabItem { Label("Contatti", systemImage: "person.crop.circle") }
-                .tag(3)
-
-            SettingsView()
-                .tabItem { Label("Impostazioni", systemImage: "gearshape") }
-                .tag(4)
-        }
-        .tint(BitzzaTheme.tomato)
-        .safeAreaInset(edge: .top, spacing: 0) {
+        VStack(spacing: 0) {
             if session.isOfflineDemo {
-                HStack(spacing: 8) {
-                    Image(systemName: "wifi.slash")
-                    Text("DEMO OFFLINE")
-                        .fontWeight(.bold)
-                        .tracking(0.8)
-                    Text("· dati solo su questo iPhone")
-                        .fontWeight(.medium)
-                    Spacer(minLength: 0)
-                }
-                .font(.caption2)
-                .foregroundStyle(BitzzaTheme.forest)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(BitzzaTheme.gold.opacity(0.24))
-                .accessibilityElement(children: .combine)
+            HStack(spacing: 8) {
+                Image(systemName: "wifi.slash")
+                Text("DEMO OFFLINE")
+                    .fontWeight(.bold)
+                    .tracking(0.8)
+                Text("· dati solo su questo iPhone")
+                    .fontWeight(.medium)
+                Spacer(minLength: 0)
             }
+            .font(.caption2)
+            .foregroundStyle(BitzzaTheme.forest)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(BitzzaTheme.gold.opacity(0.24))
+            .accessibilityElement(children: .combine)
+        }
+
+            TabView(selection: $selectedTab) {
+                WalletHomeView()
+                    .tabItem { Label("Wallet", systemImage: "wallet.bifold") }
+                    .tag(0)
+
+                MarketView()
+                    .tabItem { Label("Mercato", systemImage: "chart.xyaxis.line") }
+                    .tag(1)
+
+                ToolsView()
+                    .tabItem { Label("Strumenti", systemImage: "square.grid.2x2") }
+                    .tag(2)
+
+                ContactsView { email in
+                    session.paymentRecipient = email
+                    selectedTab = 0
+                }
+                    .tabItem { Label("Contatti", systemImage: "person.crop.circle") }
+                    .tag(3)
+
+                SettingsView()
+                    .tabItem { Label("Impostazioni", systemImage: "gearshape") }
+                    .tag(4)
+            }
+            .tint(BitzzaTheme.tomato)
         }
         .alert("BITZZA", isPresented: errorPresented) {
             Button("OK", role: .cancel) { session.errorMessage = nil }
