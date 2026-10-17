@@ -1,0 +1,8 @@
+.env
+node_modules/
+frontend/web/node_modules/
+frontend/web/dist/
+contracts/node_modules/
+contracts/artifacts/
+contracts/cache/
+.env.local
