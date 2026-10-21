@@ -15,3 +15,23 @@ services:
         value: /tmp/bitzza.db
       - key: CORS_ORIGINS
         sync: false
+
+  - type: web
+    name: bitzza-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci --omit=dev
+    startCommand: node src/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        value: https://bitzza-wallet.vercel.app
+      - key: WELCOME_BONUS_MINOR
+        value: "10000"
