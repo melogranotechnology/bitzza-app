@@ -1,6 +1,6 @@
 import Foundation
 
 enum AppConfig {
-    /// true: build TestFlight/App Store senza server; mostra solo la demo offline.
-    static let offlineOnly = true
+    /// true: nasconde l'accesso al server e mostra solo la demo offline.
+    static let offlineOnly = false
 }

@@ -31,13 +31,20 @@ npm test                 # usa il database bitzza_test (o TEST_DATABASE_URL)
 
 ## API
 
+Compatibile con le app esistenti (web e iOS), che usano questo backend senza modifiche al formato.
+
 | Metodo | Percorso | Note |
 |---|---|---|
-| POST | `/api/register` | `email`, `password` (≥10), `displayName` |
-| POST | `/api/login` | |
-| GET | `/api/wallet` | saldo e ultime 20 operazioni |
-| GET | `/api/transactions?limit=&before=` | storico con paginazione |
-| POST | `/api/transfers` | `toEmail`, `amountMinor`, `memo`; header `Idempotency-Key` |
+| POST | `/api/register`, `/api/login` | email e password (≥ 8); restituiscono `token` |
+| GET | `/api/profile`, `/api/balance` | saldo in BITZ con due decimali |
+| POST | `/api/send` | `amount`, `recipientEmail`, `description`; header `Idempotency-Key` |
+| GET | `/api/transactions` | `limit`, `offset`, `type=sent\|received`, `search` |
+| GET/POST/DELETE | `/api/address-book` | contatti |
+| GET/PUT | `/api/user/settings` | impostazioni |
+| GET | `/api/token/info`, `/api/market/*`, `/api/pizza/menu`, `/api/pizza/target` | dati di mercato simulati |
+| GET | `/api/wallet`, `/api/wallet/export` | riepilogo ed esportazione |
+
+Voucher pizza, pizzerie, mining e materie prime non sono ancora portati sul registro reale: le letture restano vuote e le azioni rispondono `501`.
 
 ## Stato
 
