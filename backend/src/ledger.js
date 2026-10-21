@@ -14,7 +14,7 @@ function assertAmount(amountMinor) {
 
 // Sposta amountMinor da un conto a un altro in modo atomico. Con la stessa
 // idempotencyKey la stessa operazione non viene mai eseguita due volte.
-async function transfer(pool, { fromAccountId, toAccountId, amountMinor, kind, memo = '', initiatedBy = null, idempotencyKey = null }) {
+async function transfer(pool, { fromAccountId, toAccountId, amountMinor, kind, memo = '', label = '', initiatedBy = null, idempotencyKey = null }) {
   assertAmount(amountMinor);
   if (fromAccountId === toAccountId) {
     throw new LedgerError('same_account', 'Mittente e destinatario coincidono', 400);
@@ -25,11 +25,11 @@ async function transfer(pool, { fromAccountId, toAccountId, amountMinor, kind, m
     await client.query('BEGIN');
 
     const txn = await client.query(
-      `INSERT INTO ledger_transactions (kind, memo, initiated_by, idempotency_key)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO ledger_transactions (kind, memo, label, initiated_by, idempotency_key)
+       VALUES ($1, $2, $5, $3, $4)
        ON CONFLICT (initiated_by, idempotency_key) DO NOTHING
        RETURNING id`,
-      [kind, memo, initiatedBy, idempotencyKey]
+      [kind, memo, initiatedBy, idempotencyKey, label]
     );
 
     if (txn.rowCount === 0) {
@@ -75,7 +75,7 @@ async function getBalance(pool, accountId) {
 
 async function getHistory(pool, accountId, { limit = 50, beforeId = null } = {}) {
   const { rows } = await pool.query(
-    `SELECT e.id, e.amount_minor, t.id AS transaction_id, t.kind, t.memo, t.created_at,
+    `SELECT e.id, e.amount_minor, t.id AS transaction_id, t.kind, t.memo, t.label, t.created_at,
             COALESCE(cu.display_name, ca.system_code) AS counterparty,
             cu.email AS counterparty_email
        FROM ledger_entries e
@@ -94,6 +94,7 @@ async function getHistory(pool, accountId, { limit = 50, beforeId = null } = {})
     amountMinor: Number(r.amount_minor),
     kind: r.kind,
     memo: r.memo,
+    label: r.label,
     createdAt: r.created_at,
     counterparty: r.counterparty,
     counterpartyEmail: r.counterparty_email,

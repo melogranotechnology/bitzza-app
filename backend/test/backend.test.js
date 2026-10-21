@@ -102,6 +102,53 @@ describe('trasferimenti', () => {
   });
 });
 
+describe('compatibilità con le app', () => {
+  test('profilo, saldo, invio e storico nel formato delle app', async () => {
+    const e = await register('erin@example.com', 'Erin');
+    await register('frank@example.com', 'Frank');
+
+    const profile = await api('/api/profile', { token: e });
+    expect(profile.body.email).toBe('erin@example.com');
+    expect(profile.body.wallet_address).toMatch(/^0x[0-9a-f]{40}$/);
+    expect((await api('/api/balance', { token: e })).body).toMatchObject({ balance: 100, currency: 'BITZ' });
+
+    const send = await api('/api/send', { method: 'POST', token: e, headers: { 'Idempotency-Key': 'app-send-001' }, body: { amount: 12.34, recipientEmail: 'frank@example.com', description: 'caffè' } });
+    expect(send.status).toBe(201);
+    expect((await api('/api/send', { method: 'POST', token: e, headers: { 'Idempotency-Key': 'app-send-001' }, body: { amount: 12.34, recipientEmail: 'frank@example.com' } })).body.replayed).toBe(true);
+    expect((await api('/api/send', { method: 'POST', token: e, headers: { 'Idempotency-Key': 'app-send-002' }, body: { amount: 1.005, recipientEmail: 'frank@example.com' } })).status).toBe(400);
+    expect((await api('/api/balance', { token: e })).body.balance).toBe(87.66);
+
+    const tx = await api('/api/transactions?limit=10&type=sent', { token: e });
+    expect(tx.body.transactions).toHaveLength(1);
+    expect(tx.body.transactions[0]).toMatchObject({ amount: 12.34, type: 'sent', description: 'caffè', otherParty: 'frank@example.com' });
+    expect(tx.body.pagination.total).toBe(1);
+    const all = await api('/api/transactions', { token: e });
+    expect(all.body.pagination.total).toBe(2);
+    expect(all.body.transactions.at(-1).otherParty).toBe('BITZZA Treasury');
+  });
+
+  test('contatti, impostazioni e dati di mercato', async () => {
+    const t = await register('gina@example.com', 'Gina');
+    const saved = await api('/api/address-book', { method: 'POST', token: t, body: { label: 'Bob', address: 'bob@example.com' } });
+    expect(saved.status).toBe(200);
+    const list = await api('/api/address-book', { token: t });
+    expect(list.body.contacts).toHaveLength(1);
+    expect((await api(`/api/address-book/${saved.body.id}`, { method: 'DELETE', token: t })).status).toBe(200);
+    expect((await api('/api/address-book', { token: t })).body.contacts).toHaveLength(0);
+
+    expect((await api('/api/user/settings', { token: t })).body).toMatchObject({ theme: 'light', notifications_enabled: 1 });
+    const upd = await api('/api/user/settings', { method: 'PUT', token: t, body: { theme: 'dark', privacy_mode: true } });
+    expect(upd.body).toMatchObject({ theme: 'dark', privacy_mode: 1 });
+    expect((await api('/api/user/settings', { method: 'PUT', token: t, body: { theme: 'neon' } })).status).toBe(400);
+
+    expect((await api('/api/market/data')).body.price_usd).toBeGreaterThan(0);
+    expect((await api('/api/market/history?limit=5')).body.history).toHaveLength(5);
+    expect((await api('/api/pizza/menu')).body.products).toHaveLength(1);
+    expect((await api('/api/mining/status', { token: t })).body.canClaim).toBe(false);
+    expect((await api('/api/mining/claim', { method: 'POST', token: t })).status).toBe(501);
+  });
+});
+
 describe('registro', () => {
   test('le voci sono immutabili', async () => {
     await expect(pool.query('UPDATE ledger_entries SET amount_minor = 1')).rejects.toThrow(/append-only/);

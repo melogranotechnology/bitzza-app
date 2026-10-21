@@ -3,6 +3,7 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const ledger = require('./ledger');
+const { legacyRouter, newWalletAddress } = require('./legacy');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -57,10 +58,9 @@ function createApp(pool, config) {
   app.post('/api/register', authLimit, wrap(async (req, res) => {
     const email = String(req.body?.email || '').trim().toLowerCase();
     const password = String(req.body?.password || '');
-    const displayName = String(req.body?.displayName || '').trim().slice(0, 60);
+    const displayName = (String(req.body?.displayName || '').trim() || email.split('@')[0]).slice(0, 60);
     if (!EMAIL_RE.test(email) || email.length > 254) return res.status(400).json({ error: 'Email non valida' });
-    if (password.length < 10 || password.length > 128) return res.status(400).json({ error: 'La password deve avere da 10 a 128 caratteri' });
-    if (!displayName) return res.status(400).json({ error: 'Nome obbligatorio' });
+    if (password.length < 8 || password.length > 128) return res.status(400).json({ error: 'La password deve avere da 8 a 128 caratteri' });
 
     const hash = await bcrypt.hash(password, 11);
     const client = await pool.connect();
@@ -68,8 +68,8 @@ function createApp(pool, config) {
     try {
       await client.query('BEGIN');
       const u = await client.query(
-        'INSERT INTO users (email, password_hash, display_name) VALUES ($1, $2, $3) RETURNING id, email, display_name',
-        [email, hash, displayName]
+        'INSERT INTO users (email, password_hash, display_name, wallet_address) VALUES ($1, $2, $3, $4) RETURNING id, email, display_name',
+        [email, hash, displayName, newWalletAddress()]
       );
       user = u.rows[0];
       const a = await client.query('INSERT INTO accounts (user_id) VALUES ($1) RETURNING id', [user.id]);
@@ -95,7 +95,7 @@ function createApp(pool, config) {
         idempotencyKey: 'welcome-bonus',
       });
     }
-    return res.status(201).json({ token: sign(user), user: { email: user.email, displayName: user.display_name } });
+    return res.status(201).json({ message: 'Utente registrato', token: sign(user), user: { email: user.email, displayName: user.display_name } });
   }));
 
   app.post('/api/login', authLimit, wrap(async (req, res) => {
@@ -106,7 +106,7 @@ function createApp(pool, config) {
     const hash = rows[0]?.password_hash || '$2a$11$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvalidinv';
     const ok = await bcrypt.compare(password, hash);
     if (!rows.length || !ok) return res.status(401).json({ error: 'Credenziali non valide' });
-    return res.json({ token: sign(rows[0]), user: { email: rows[0].email, displayName: rows[0].display_name } });
+    return res.json({ message: 'Accesso eseguito', token: sign(rows[0]), user: { email: rows[0].email, displayName: rows[0].display_name } });
   }));
 
   app.get('/api/wallet', requireAuth, wrap(async (req, res) => {
@@ -115,12 +115,6 @@ function createApp(pool, config) {
       ledger.getHistory(pool, req.user.accountId, { limit: 20 }),
     ]);
     res.json({ user: { email: req.user.email, displayName: req.user.displayName }, balanceMinor, transactions: history });
-  }));
-
-  app.get('/api/transactions', requireAuth, wrap(async (req, res) => {
-    const limit = Number.parseInt(req.query.limit, 10) || 50;
-    const before = req.query.before ? Number.parseInt(req.query.before, 10) : null;
-    res.json({ transactions: await ledger.getHistory(pool, req.user.accountId, { limit, beforeId: before }) });
   }));
 
   app.post('/api/transfers', requireAuth, wrap(async (req, res) => {
@@ -143,6 +137,8 @@ function createApp(pool, config) {
     const balanceMinor = await ledger.getBalance(pool, req.user.accountId);
     res.status(result.replayed ? 200 : 201).json({ transactionId: result.transactionId, replayed: result.replayed, balanceMinor });
   }));
+
+  app.use('/api', legacyRouter(pool, requireAuth, wrap));
 
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {

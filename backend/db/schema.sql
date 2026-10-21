@@ -67,3 +67,26 @@ CREATE CONSTRAINT TRIGGER ledger_entries_balanced AFTER INSERT ON ledger_entries
   DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION ledger_txn_balanced();
 
 INSERT INTO accounts (system_code) VALUES ('treasury') ON CONFLICT (system_code) DO NOTHING;
+
+-- Compatibilità con le app esistenti (web e iOS).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_address text;
+UPDATE users SET wallet_address = '0x' || substr(md5(id::text) || md5(id::text || 'bitzza'), 1, 40) WHERE wallet_address IS NULL;
+ALTER TABLE ledger_transactions ADD COLUMN IF NOT EXISTS label text NOT NULL DEFAULT '';
+
+CREATE TABLE IF NOT EXISTS address_book (
+  id bigserial PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES users(id),
+  label text NOT NULL,
+  address text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, address)
+);
+
+CREATE TABLE IF NOT EXISTS user_settings (
+  user_id uuid PRIMARY KEY REFERENCES users(id),
+  theme text NOT NULL DEFAULT 'light' CHECK (theme IN ('light', 'dark', 'system')),
+  notifications_enabled integer NOT NULL DEFAULT 1,
+  privacy_mode integer NOT NULL DEFAULT 0,
+  default_slippage numeric NOT NULL DEFAULT 0.5 CHECK (default_slippage BETWEEN 0 AND 50),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
