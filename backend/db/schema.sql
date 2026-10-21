@@ -118,3 +118,15 @@ CREATE TABLE IF NOT EXISTS delivery_orders (
 CREATE INDEX IF NOT EXISTS delivery_orders_open_idx ON delivery_orders(created_at DESC) WHERE status = 'open';
 CREATE INDEX IF NOT EXISTS delivery_orders_customer_idx ON delivery_orders(customer_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS delivery_orders_courier_idx ON delivery_orders(courier_id, created_at DESC);
+
+-- Fase 3: ricariche con Stripe (1 EUR = 1 BITZ), accreditate solo dal webhook firmato.
+CREATE TABLE IF NOT EXISTS topups (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id),
+  stripe_session_id text UNIQUE,
+  amount_cents bigint NOT NULL CHECK (amount_cents > 0),
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  paid_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS topups_user_idx ON topups(user_id, created_at DESC);

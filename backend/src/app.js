@@ -4,17 +4,19 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const ledger = require('./ledger');
 const { ordersRouter } = require('./orders');
+const { stripeWebhook, topupsRouter } = require('./topups');
 const { legacyRouter, newWalletAddress } = require('./legacy');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 function createApp(pool, config) {
-  const { jwtSecret, corsOrigins = [], welcomeBonusMinor = 0, rateLimit = true } = config;
+  const { jwtSecret, corsOrigins = [], welcomeBonusMinor = 0, rateLimit = true, stripe = null, stripeWebhookSecret = '', appUrl = '' } = config;
   if (!jwtSecret || jwtSecret.length < 32) throw new Error('JWT_SECRET deve avere almeno 32 caratteri');
 
   const app = express();
   app.set('trust proxy', 1);
   app.use(cors(corsOrigins.length ? { origin: corsOrigins } : undefined));
+  if (stripe && stripeWebhookSecret) app.use(stripeWebhook(pool, stripe, stripeWebhookSecret));
   app.use(express.json({ limit: '50kb' }));
 
   const attempts = new Map();
@@ -139,6 +141,7 @@ function createApp(pool, config) {
     res.status(result.replayed ? 200 : 201).json({ transactionId: result.transactionId, replayed: result.replayed, balanceMinor });
   }));
 
+  app.use('/api/topups', topupsRouter(pool, requireAuth, wrap, { stripe, appUrl }));
   app.use('/api/orders', ordersRouter(pool, requireAuth, wrap));
   app.use('/api', legacyRouter(pool, requireAuth, wrap));
 

@@ -65,3 +65,18 @@ Tutte le rotte richiedono il token. Il prezzo è calcolato dal server (stessa fo
 
 Alla consegna, in una sola transazione: escrow → corriere (spesa + compenso), escrow → piattaforma (commissione), treasury → cliente (cashback).
 Pizza merchants, voucher, mining e commodities non sono portati sul ledger reale (GET vuoti, POST 501).
+
+## Fase 3 — Ricariche Stripe (solo modalità test)
+
+1 EUR = 1 BITZ (5–200 € per ricarica). Il saldo viene accreditato **solo** dal webhook firmato da Stripe, mai dal client.
+
+| Metodo | Percorso | Descrizione |
+|---|---|---|
+| GET | `/api/topups/config` | Se le ricariche sono attive e i limiti |
+| POST | `/api/topups` | `{amountEur}` → `{url}` della pagina di pagamento Stripe |
+| GET | `/api/topups` | Ultime ricariche |
+| POST | `/api/stripe/webhook` | Evento `checkout.session.completed` (firma verificata, importo controllato, idempotente) |
+
+Variabili: `STRIPE_SECRET_KEY` (deve iniziare con `sk_test_`, altrimenti il server non parte), `STRIPE_WEBHOOK_SECRET` (`whsec_…`), `APP_URL`.
+Carta di prova: `4242 4242 4242 4242`, qualsiasi data futura e CVC.
+Senza chiavi, `/api/topups` risponde 503 e il resto funziona come prima.

@@ -35,3 +35,7 @@ services:
         value: https://bitzza-wallet.vercel.app
       - key: WELCOME_BONUS_MINOR
         value: "10000"
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
