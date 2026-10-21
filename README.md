@@ -6,6 +6,8 @@
 
 <p align="center"><img src="docs/img/onboarding.png" width="240" alt="Onboarding"> <img src="docs/img/wallet.png" width="240" alt="Wallet BITZZA su iPhone"></p>
 
+**Demo online:** https://bitzza-wallet.vercel.app (API su Render piano gratuito: la prima richiesta può richiedere circa un minuto e i dati si azzerano ai riavvii).
+
 ## Cosa dimostra
 
 | Area | Tecnologie | Contenuto |
