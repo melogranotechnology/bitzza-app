@@ -89,7 +89,7 @@ function legacyRouter(pool, requireAuth, wrap) {
     const [list, count] = await Promise.all([
       pool.query(
         `SELECT e.id, e.amount_minor, t.memo, t.label, t.created_at,
-                COALESCE(cu.email, 'BITZZA Treasury') AS other_party
+                COALESCE(cu.email, CASE ca.system_code WHEN 'escrow' THEN 'SpesaGo (garanzia)' WHEN 'platform' THEN 'BITZZA' ELSE 'BITZZA Treasury' END) AS other_party
            FROM ledger_entries e
            JOIN ledger_transactions t ON t.id = e.transaction_id
            JOIN ledger_entries ce ON ce.transaction_id = e.transaction_id AND ce.account_id <> e.account_id

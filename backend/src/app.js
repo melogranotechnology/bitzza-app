@@ -3,6 +3,7 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const ledger = require('./ledger');
+const { ordersRouter } = require('./orders');
 const { legacyRouter, newWalletAddress } = require('./legacy');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -138,6 +139,7 @@ function createApp(pool, config) {
     res.status(result.replayed ? 200 : 201).json({ transactionId: result.transactionId, replayed: result.replayed, balanceMinor });
   }));
 
+  app.use('/api/orders', ordersRouter(pool, requireAuth, wrap));
   app.use('/api', legacyRouter(pool, requireAuth, wrap));
 
   // eslint-disable-next-line no-unused-vars

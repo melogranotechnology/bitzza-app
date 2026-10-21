@@ -933,6 +933,16 @@ final class SessionStore: ObservableObject {
         offlineState.miningStatus.canClaim = secondsRemaining == 0
     }
 
+    func withAPI<T>(_ operation: (APIClient, String) async throws -> T) async -> T? {
+        guard let (api, token) = featureContext() else { return nil }
+        do {
+            return try await operation(api, token)
+        } catch {
+            report(error)
+            return nil
+        }
+    }
+
     private func featureContext() -> (APIClient, String)? {
         errorMessage = nil
         notice = nil

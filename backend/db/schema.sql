@@ -90,3 +90,31 @@ CREATE TABLE IF NOT EXISTS user_settings (
   default_slippage numeric NOT NULL DEFAULT 0.5 CHECK (default_slippage BETWEEN 0 AND 50),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Fase 2: ordini di spesa e consegne tra utenti, con conto di garanzia (escrow).
+INSERT INTO accounts (system_code) VALUES ('escrow'), ('platform') ON CONFLICT (system_code) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS delivery_orders (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  customer_id uuid NOT NULL REFERENCES users(id),
+  courier_id uuid REFERENCES users(id),
+  store text NOT NULL,
+  area text NOT NULL DEFAULT '',
+  items_minor bigint NOT NULL CHECK (items_minor > 0),
+  weight_kg numeric NOT NULL CHECK (weight_kg > 0),
+  distance_km numeric NOT NULL CHECK (distance_km > 0),
+  vehicle text NOT NULL CHECK (vehicle IN ('walking', 'bicycle', 'motorcycle', 'car')),
+  courier_fee_minor bigint NOT NULL,
+  commission_minor bigint NOT NULL,
+  total_minor bigint NOT NULL,
+  cashback_minor bigint NOT NULL DEFAULT 0,
+  status text NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'accepted', 'shopping', 'delivering', 'delivered', 'cancelled')),
+  idempotency_key text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (customer_id, idempotency_key),
+  CHECK (courier_id IS NULL OR courier_id <> customer_id)
+);
+CREATE INDEX IF NOT EXISTS delivery_orders_open_idx ON delivery_orders(created_at DESC) WHERE status = 'open';
+CREATE INDEX IF NOT EXISTS delivery_orders_customer_idx ON delivery_orders(customer_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS delivery_orders_courier_idx ON delivery_orders(courier_id, created_at DESC);

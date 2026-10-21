@@ -237,6 +237,25 @@ struct APIClient {
         )
     }
 
+    func listOrders(_ kind: String, token: String) async throws -> [OnlineOrder] {
+        let r: OnlineOrdersResponse = try await request(path: "orders/\(kind)", token: token)
+        return r.orders
+    }
+
+    func placeOrder(_ body: NewOnlineOrder, key: String, token: String) async throws -> OnlineOrder {
+        let r: OnlineOrderResponse = try await request(
+            path: "orders", method: "POST", token: token, idempotencyKey: key, body: body
+        )
+        return r.order
+    }
+
+    func orderAction(_ id: String, _ action: String, expectedStatus: String? = nil, token: String) async throws {
+        let _: OnlineOrderAction = try await request(
+            path: "orders/\(id)/\(action)", method: "POST", token: token,
+            body: expectedStatus.map { OrderStepBody(expectedStatus: $0) } ?? OrderStepBody(expectedStatus: nil)
+        )
+    }
+
     private func request<Response: Decodable, Body: Encodable>(
         path: String,
         method: String = "GET",

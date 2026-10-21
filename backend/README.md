@@ -49,3 +49,19 @@ Voucher pizza, pizzerie, mining e materie prime non sono ancora portati sul regi
 ## Stato
 
 Questa è la fase 1 (conti, registro, trasferimenti). Prossime fasi: ordini e consegne tra utenti, QR firmati dal server, pagamenti in euro con Stripe in modalità test, collegamento dell'app iOS. Il passaggio a fondi reali richiede una società, verifica dell'identità e consulenza legale (vedi `docs/LEGAL-PRODUCT-BRIEF.md`).
+
+## Fase 2 — Ordini con escrow (`/api/orders`)
+
+Tutte le rotte richiedono il token. Il prezzo è calcolato dal server (stessa formula dell'app iOS).
+
+| Metodo | Percorso | Descrizione |
+|---|---|---|
+| POST | `/api/orders` | Crea l'ordine (header `Idempotency-Key`); il totale va in escrow |
+| GET | `/api/orders/mine` · `/available` · `/deliveries` | Miei ordini · ordini aperti · consegne che sto facendo |
+| POST | `/api/orders/:id/accept` | Un corriere accetta (atomico, uno solo vince) |
+| POST | `/api/orders/:id/advance` | `{expectedStatus}`: accepted → shopping → delivering → delivered |
+| POST | `/api/orders/:id/release` | Il corriere rinuncia prima di iniziare |
+| POST | `/api/orders/:id/cancel` | Il cliente annulla finché è aperto (rimborso) |
+
+Alla consegna, in una sola transazione: escrow → corriere (spesa + compenso), escrow → piattaforma (commissione), treasury → cliente (cashback).
+Pizza merchants, voucher, mining e commodities non sono portati sul ledger reale (GET vuoti, POST 501).

@@ -12,52 +12,53 @@ function assertAmount(amountMinor) {
   }
 }
 
-// Sposta amountMinor da un conto a un altro in modo atomico. Con la stessa
+// Blocca i conti in ordine fisso: evita deadlock tra operazioni concorrenti.
+async function lockAccounts(client, accountIds) {
+  const ids = [...new Set(accountIds)];
+  const { rows } = await client.query('SELECT id FROM accounts WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE', [ids]);
+  if (rows.length !== ids.length) throw new LedgerError('account_not_found', 'Conto non trovato', 404);
+}
+
+// Esegue un movimento dentro una transazione già aperta. Con la stessa
 // idempotencyKey la stessa operazione non viene mai eseguita due volte.
-async function transfer(pool, { fromAccountId, toAccountId, amountMinor, kind, memo = '', label = '', initiatedBy = null, idempotencyKey = null }) {
+async function postTransfer(client, { fromAccountId, toAccountId, amountMinor, kind, memo = '', label = '', initiatedBy = null, idempotencyKey = null }) {
   assertAmount(amountMinor);
   if (fromAccountId === toAccountId) {
     throw new LedgerError('same_account', 'Mittente e destinatario coincidono', 400);
   }
+  const txn = await client.query(
+    `INSERT INTO ledger_transactions (kind, memo, label, initiated_by, idempotency_key)
+     VALUES ($1, $2, $5, $3, $4)
+     ON CONFLICT (initiated_by, idempotency_key) DO NOTHING
+     RETURNING id`,
+    [kind, memo, initiatedBy, idempotencyKey, label]
+  );
+  if (txn.rowCount === 0) {
+    const existing = await client.query(
+      'SELECT id FROM ledger_transactions WHERE initiated_by = $1 AND idempotency_key = $2',
+      [initiatedBy, idempotencyKey]
+    );
+    return { transactionId: existing.rows[0].id, replayed: true };
+  }
+  const transactionId = txn.rows[0].id;
+  await lockAccounts(client, [fromAccountId, toAccountId]);
+  await client.query('UPDATE accounts SET balance_minor = balance_minor - $2 WHERE id = $1', [fromAccountId, amountMinor]);
+  await client.query('UPDATE accounts SET balance_minor = balance_minor + $2 WHERE id = $1', [toAccountId, amountMinor]);
+  await client.query(
+    `INSERT INTO ledger_entries (transaction_id, account_id, amount_minor) VALUES ($1, $2, $3), ($1, $4, $5)`,
+    [transactionId, fromAccountId, -amountMinor, toAccountId, amountMinor]
+  );
+  return { transactionId, replayed: false };
+}
 
+// Esegue fn(client) in una transazione; converte il vincolo "saldo >= 0" in errore leggibile.
+async function withTransaction(pool, fn) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-
-    const txn = await client.query(
-      `INSERT INTO ledger_transactions (kind, memo, label, initiated_by, idempotency_key)
-       VALUES ($1, $2, $5, $3, $4)
-       ON CONFLICT (initiated_by, idempotency_key) DO NOTHING
-       RETURNING id`,
-      [kind, memo, initiatedBy, idempotencyKey, label]
-    );
-
-    if (txn.rowCount === 0) {
-      const existing = await client.query(
-        'SELECT id FROM ledger_transactions WHERE initiated_by = $1 AND idempotency_key = $2',
-        [initiatedBy, idempotencyKey]
-      );
-      await client.query('COMMIT');
-      return { transactionId: existing.rows[0].id, replayed: true };
-    }
-
-    const transactionId = txn.rows[0].id;
-    // Blocco in ordine fisso per evitare deadlock tra trasferimenti incrociati.
-    await client.query('SELECT id FROM accounts WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE', [[fromAccountId, toAccountId]]);
-
-    const debit = await client.query('UPDATE accounts SET balance_minor = balance_minor - $2 WHERE id = $1', [fromAccountId, amountMinor]);
-    const credit = await client.query('UPDATE accounts SET balance_minor = balance_minor + $2 WHERE id = $1', [toAccountId, amountMinor]);
-    if (debit.rowCount !== 1 || credit.rowCount !== 1) {
-      throw new LedgerError('account_not_found', 'Conto non trovato', 404);
-    }
-
-    await client.query(
-      `INSERT INTO ledger_entries (transaction_id, account_id, amount_minor) VALUES ($1, $2, $3), ($1, $4, $5)`,
-      [transactionId, fromAccountId, -amountMinor, toAccountId, amountMinor]
-    );
-
+    const result = await fn(client);
     await client.query('COMMIT');
-    return { transactionId, replayed: false };
+    return result;
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     if (err.code === '23514') throw new LedgerError('insufficient_funds', 'Saldo insufficiente', 409);
@@ -65,6 +66,11 @@ async function transfer(pool, { fromAccountId, toAccountId, amountMinor, kind, m
   } finally {
     client.release();
   }
+}
+
+async function transfer(pool, params) {
+  assertAmount(params.amountMinor);
+  return withTransaction(pool, (client) => postTransfer(client, params));
 }
 
 async function getBalance(pool, accountId) {
@@ -111,4 +117,4 @@ async function auditBalances(pool) {
   return rows;
 }
 
-module.exports = { LedgerError, transfer, getBalance, getHistory, auditBalances };
+module.exports = { LedgerError, assertAmount, lockAccounts, postTransfer, withTransaction, transfer, getBalance, getHistory, auditBalances };

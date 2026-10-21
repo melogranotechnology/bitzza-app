@@ -82,6 +82,7 @@ struct WalletTabsView: View {
 }
 
 private struct ToolsView: View {
+    @EnvironmentObject private var session: SessionStore
     var body: some View {
         NavigationStack {
             List {
@@ -95,6 +96,18 @@ private struct ToolsView: View {
                             symbol: "cart.fill",
                             tint: BitzzaTheme.tomato
                         )
+                    }
+                    if !session.isOfflineDemo {
+                        NavigationLink {
+                            OnlineOrdersView()
+                        } label: {
+                            ToolRow(
+                                title: "Ordini reali",
+                                subtitle: "Ordina o consegna tra utenti, pagamento in garanzia",
+                                symbol: "shippingbox.fill",
+                                tint: BitzzaTheme.tomato
+                            )
+                        }
                     }
                     NavigationLink {
                         LevelsView()
