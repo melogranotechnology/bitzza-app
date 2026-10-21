@@ -237,6 +237,23 @@ struct APIClient {
         )
     }
 
+    func topupConfig(token: String) async throws -> TopupConfig {
+        try await request(path: "topups/config", token: token)
+    }
+
+    func startTopup(amountEur: Int, token: String) async throws -> URL {
+        let r: TopupCheckout = try await request(
+            path: "topups", method: "POST", token: token, body: TopupRequest(amountEur: amountEur)
+        )
+        guard let url = URL(string: r.url) else { throw APIClientError.invalidResponse }
+        return url
+    }
+
+    func topups(token: String) async throws -> [TopupRecord] {
+        let r: TopupList = try await request(path: "topups", token: token)
+        return r.topups
+    }
+
     func listOrders(_ kind: String, token: String) async throws -> [OnlineOrder] {
         let r: OnlineOrdersResponse = try await request(path: "orders/\(kind)", token: token)
         return r.orders

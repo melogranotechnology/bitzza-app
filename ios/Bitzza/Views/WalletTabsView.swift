@@ -99,6 +99,18 @@ private struct ToolsView: View {
                     }
                     if !session.isOfflineDemo {
                         NavigationLink {
+                            TopupView()
+                        } label: {
+                            ToolRow(
+                                title: "Ricarica con carta",
+                                subtitle: "Aggiungi BITZ con Stripe (modalità test)",
+                                symbol: "creditcard.fill",
+                                tint: BitzzaTheme.forest
+                            )
+                        }
+                    }
+                    if !session.isOfflineDemo {
+                        NavigationLink {
                             OnlineOrdersView()
                         } label: {
                             ToolRow(
