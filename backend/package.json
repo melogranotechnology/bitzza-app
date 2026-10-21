@@ -1,0 +1,26 @@
+{
+  "name": "bitzza-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BITZZA backend: Postgres, registro contabile a doppia scrittura, auth JWT",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "migrate": "node src/migrate.js",
+    "test": "jest --runInBand"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "jest": "^29.6.2"
+  },
+  "jest": {
+    "testEnvironment": "node"
+  }
+}

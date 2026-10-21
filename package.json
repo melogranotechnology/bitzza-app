@@ -38,6 +38,7 @@
       "/node_modules/",
       "<rootDir>/contracts/",
       "<rootDir>/BITZZA-Progetto-Completo/",
+      "<rootDir>/backend/",
       "<rootDir>/bitzza-app/"
     ]
   }
